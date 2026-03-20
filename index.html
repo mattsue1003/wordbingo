@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>大腦體操 - 台灣夜市美食尋字大挑戰</title>
+    
+    <!-- 引入 PDF 轉換套件 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <style>
+        :root {
+            --primary-color: #8b5cf6; /* 紫色系代表夜市夜晚 */
+            --primary-hover: #7c3aed; 
+            --dark-color: #4c1d95;    
+            --bg-color: #f5f3ff;      
+            --accent-color: #f59e0b;  
+            --card-bg: #ffffff;
+        }
+
+        body { 
+            font-family: "PingFang TC", "Microsoft JhengHei", Arial, sans-serif; 
+            background: var(--bg-color); 
+            margin: 0; 
+            padding: 0;
+            color: #334155;
+        }
+        
+        .top-banner { background: var(--primary-color); height: 8px; width: 100%; }
+
+        /* --- 主持人控制面板 (螢幕顯示區) --- */
+        .controls {
+            background: white; 
+            padding: 25px 30px; 
+            border-radius: 0 0 20px 20px; 
+            box-shadow: 0 10px 25px rgba(139, 92, 246, 0.1);
+            max-width: 1100px; 
+            margin: 0 auto 30px auto; 
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+        
+        .controls h2 { margin: 0 0 15px 0; color: var(--dark-color); font-size: 1.8rem; display: flex; align-items: center; gap: 10px; grid-column: 1 / -1;}
+
+        .designer-info {
+            background: #ede9fe; padding: 15px; border-radius: 10px; font-size: 1rem;
+            color: #5b21b6; margin-bottom: 20px; border-left: 5px solid var(--primary-color);
+            line-height: 1.6; grid-column: 1 / -1;
+        }
+
+        /* 左側：設定與列印區 */
+        .setup-section {
+            background: #fafaf9;
+            padding: 20px;
+            border-radius: 15px;
+            border: 1px solid #e7e5e4;
+        }
+
+        .setup-section h3 { margin-top: 0; color: #6d28d9; font-size: 1.3rem; border-bottom: 2px dashed #c4b5fd; padding-bottom: 10px; }
+        
+        .setting-row { display: flex; align-items: center; gap: 10px; margin-bottom: 15px; font-size: 1.1rem; font-weight: bold; color: #475569; }
+        .setting-row input { padding: 8px 12px; font-size: 1.1rem; border: 2px solid #cbd5e1; border-radius: 8px; width: 80px; text-align: center; }
+        .setting-row input:focus { outline: none; border-color: var(--primary-color); }
+
+        .btn-group { display: flex; gap: 15px; margin-top: 20px; flex-wrap: wrap; }
+        button { 
+            flex: 1; min-width: 140px; padding: 15px; border: none; border-radius: 12px; 
+            font-size: 18px; font-weight: bold; cursor: pointer; 
+            color: white; transition: all 0.2s; 
+            display: flex; justify-content: center; align-items: center; gap: 8px;
+        }
+        button:hover { filter: brightness(1.1); transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,0,0,0.15); }
+        .gen-btn { background: var(--primary-color); grid-column: 1 / -1; width: 100%; margin-bottom: 10px;}
+        .print-btn { background: #475569; }
+        .pdf-btn { background: #ea580c; } 
+
+        /* Loading 遮罩 */
+        #loadingOverlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255,255,255,0.8); z-index: 9999; 
+            justify-content: center; align-items: center; flex-direction: column;
+        }
+        .spinner {
+            border: 6px solid #f3f3f3; border-top: 6px solid var(--primary-color);
+            border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        #hidden-capture { position: fixed; left: -5000px; width: 210mm; }
+
+        /* 右側：抽籤遊戲區 */
+        .game-section {
+            display: flex; flex-direction: column; align-items: center;
+        }
+
+        .lottery-machine {
+            background: var(--dark-color);
+            width: 100%;
+            height: 200px;
+            border-radius: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.5), 0 10px 20px rgba(76, 29, 149, 0.2);
+            position: relative;
+            margin-bottom: 20px;
+            border: 8px solid #f59e0b;
+        }
+
+        #lottery-result {
+            font-size: 3.5rem;
+            font-weight: 900;
+            color: white;
+            letter-spacing: 5px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .draw-btn {
+            background: #ef4444; 
+            font-size: 1.5rem;
+            padding: 20px;
+            width: 100%;
+            border-radius: 15px;
+            box-shadow: 0 6px 0 #b91c1c;
+        }
+        .draw-btn:active { transform: translateY(6px); box-shadow: none; }
+        .draw-btn:disabled { background: #9ca3af; box-shadow: 0 6px 0 #6b7280; cursor: not-allowed; }
+
+        /* 歷史紀錄與主持人解答提示 */
+        .history-panel {
+            margin-top: 20px; width: 100%;
+            background: white; border-radius: 10px; padding: 15px;
+            border: 1px solid #e2e8f0;
+        }
+        .history-panel h4 { margin: 0 0 10px 0; color: #334155; }
+        .history-list {
+            display: flex; flex-wrap: wrap; gap: 10px;
+        }
+        .history-tag {
+            padding: 8px 15px; border-radius: 20px; font-weight: bold; font-size: 1.1rem;
+        }
+        .tag-on-paper { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+        .tag-absent { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+
+        /* --- 響應式 A4 預覽與列印區 --- */
+        .preview-area { width: 100%; overflow-x: hidden; display: flex; flex-direction: column; align-items: center; padding-bottom: 40px; }
+        .sheet-scaler { transform-origin: top center; margin-bottom: 20px; }
+
+        .sheet {
+            background: white; 
+            width: 210mm; 
+            height: 297mm; 
+            padding: 15mm; 
+            box-sizing: border-box; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15); 
+            display: flex; 
+            flex-direction: column; 
+            position: relative;
+        }
+
+        .sheet-header { border-bottom: 4px double var(--primary-color); padding-bottom: 15px; margin-bottom: 20px; }
+        .sheet-title { text-align: center; font-size: 28pt; font-weight: 900; color: var(--dark-color); margin-bottom: 10px; letter-spacing: 5px; }
+        
+        .sheet-info-bar { display: flex; justify-content: space-between; font-size: 14pt; margin-top: 15px; }
+        .input-line { border-bottom: 1px solid #64748b; width: 150px; display: inline-block; }
+
+        .sheet-instructions {
+            font-size: 14pt; color: #334155; line-height: 1.5; margin-bottom: 20px;
+            background: #f5f3ff; padding: 15px; border-radius: 10px; border-left: 6px solid var(--primary-color);
+            font-weight: bold;
+        }
+
+        /* --- 8x8 尋字矩陣 --- */
+        .matrix-grid {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            grid-template-rows: repeat(8, 1fr);
+            gap: 2mm;
+            flex-grow: 1; 
+        }
+
+        .matrix-cell {
+            border: 3px solid #334155;
+            border-radius: 8px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 36pt; 
+            font-weight: 900;
+            color: #0f172a;
+        }
+
+        @media print {
+            .no-print { display: none !important; }
+            body { background: white; margin: 0; padding: 0;}
+            .preview-area { display: block; overflow: visible; padding: 0; }
+            .sheet-scaler { transform: none !important; margin: 0; height: auto !important;}
+            .sheet { box-shadow: none; padding: 10mm; page-break-after: always; }
+            .matrix-cell { border: 2px solid #000; color: #000; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="top-banner no-print"></div>
+
+<div class="controls no-print">
+    <h2>🎯 台灣夜市美食尋字大挑戰 - 抽籤系統</h2>
+    
+    <div class="designer-info">
+        <b>【系統獨家特色】</b><br>
+        1. <b>絕對不重複：</b>系統每次都會自動計算，確保抽籤池裡的每一道美食，<b>連一個字都不會互相重複</b>。<br>
+        2. <b>找不到的驚喜：</b>抽籤池裡的美食大約有 70% 會出現在紙上，30% 不在紙上。如果找了一圈發現字不在上面，長輩可以大聲喊出「沒有」！自然地訓練長輩的判斷力與反應。<br>
+        3. <b>千變萬化的學習單：</b>您可以輸入要印幾份，每份紙上的「答案」一樣，但<b>文字排版位置與背景干擾字完全不同</b>，防止學員互相抄襲！
+    </div>
+
+    <!-- 左側設定 -->
+    <div class="setup-section">
+        <h3>📄 步驟一：準備學習單</h3>
+        <p style="color: #64748b; margin-bottom: 15px; font-size: 0.95rem;">
+            系統將自動尋找字元完全不重疊的夜市美食組合，並確保大約 70% 的抽籤題目會在學習單上。
+        </p>
+        <div class="setting-row">
+            <label for="sheetCount">👥 請輸入要產生幾份學習單：</label>
+            <input type="number" id="sheetCount" value="1" min="1" max="25"> 份
+        </div>
+        <button class="gen-btn" onclick="generateGame()">✨ 立即產生專屬題目單</button>
+        <div class="btn-group">
+            <button class="print-btn" onclick="window.print()">🖨️ 直接列印</button>
+            <button class="pdf-btn" id="pdfBtn" onclick="downloadPDF()">📱 下載 PDF</button>
+        </div>
+    </div>
+
+    <!-- 右側遊戲 -->
+    <div class="game-section">
+        <div class="lottery-machine">
+            <div id="lottery-result">請先產生題目單</div>
+        </div>
+        <button class="draw-btn" id="drawBtn" onclick="drawFood()" disabled>🎲 抽出下一道美食</button>
+
+        <div class="history-panel">
+            <h4>📜 抽籤歷史紀錄 (附主持人提示)</h4>
+            <div class="history-list" id="history-container">
+                <span style="color: #94a3b8;">尚未開始抽籤</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 學習單預覽區 -->
+<div class="preview-area no-print" id="output">
+    <!-- 動態生成 A4 紙 -->
+</div>
+
+<div id="hidden-capture"></div>
+
+<div id="loadingOverlay">
+    <div class="spinner"></div>
+    <div style="margin-top: 20px; font-weight: bold; font-size: 18px; color: var(--primary-color);" id="loadingText">正在繪製與排版，請稍候...</div>
+</div>
+
+<script>
+    // 豐富的台灣夜市美食庫
+    const nightMarketFoods = [
+        "臭豆腐", "豬血糕", "地瓜球", "蚵仔煎", "鹽酥雞", "滷肉飯", "胡椒餅", "珍珠奶茶", "烤玉米",
+        "芒果冰", "甜不辣", "鼎邊銼", "棺材板", "四神湯", "碗粿", "關東煮", "沙威瑪", "燒仙草",
+        "麻糬", "雙胞胎", "營養三明治", "楊桃汁", "青蛙下蛋", "黑輪", "藥燉排骨", "燙魷魚", "涼麵",
+        "刈包", "糖葫蘆", "生炒花枝", "烤鳥蛋", "潤餅", "車輪餅", "雞蛋糕", "拔絲地瓜",
+        "米血糕", "大麵羹", "蝦仁羹", "滷味", "鹹水雞", "筒仔米糕", "綠豆沙", "木瓜牛奶", "愛玉冰",
+        "仙草蜜", "粉圓", "豆花", "湯圓", "肉粽", "麵線", "肉羹", "魷魚羹", "炒米粉", "炒麵",
+        "蝦猴", "炸鮮奶", "碳烤", "大餅包小餅", "炸雞", "蔥抓餅", "地瓜條", "芋圓", "肉包", "水餃",
+        "煎餃", "鱔魚意麵", "蝦捲", "豬腳", "米粉湯", "滷肉", "控肉飯", "豬排", "牛排", "烤生蠔",
+        "干貝燒", "明太子", "起司馬鈴薯", "烤魚", "魚丸湯", "貢丸湯", "蛤蜊湯", "三杯雞", "炒飯", "燴飯"
+    ];
+
+    // 千字文 (作為絕對安全的背景混淆字庫，排除所有抽籤字後使用)
+    const thousandChars = "天地玄黃宇宙洪荒日月盈昃辰宿列張寒來暑往秋收冬藏閏餘成歲律呂調陽雲騰致雨露結為霜金生麗水玉出崑岡劍號巨闕珠稱夜光果珍李柰菜重芥薑海鹹河淡鱗潛羽翔龍師火帝鳥官人皇始制文字乃服衣裳推位讓國有虞陶唐弔民伐罪周發殷湯坐朝問道垂拱平章愛育黎首臣伏戎羌遐邇一體率賓歸王鳴鳳在竹白駒食場化被草木賴及萬方蓋此身髮四大五常恭惟鞠養豈敢毀傷女慕貞潔男效才良知過必改得能莫忘罔談彼短靡恃己長信使可覆器欲難量墨悲絲染詩讚羔羊景行維賢克念作聖德建名立形端表正空谷傳聲虛堂習聽禍因惡積福緣善慶尺璧非寶寸陰是競資父事君曰嚴與敬孝當竭力忠則盡命臨深履薄夙興溫凊似蘭斯馨如松之盛川流不息淵澄取映容止若思言辭安定篤初誠美慎終宜令榮業所基籍甚無竟學優登仕攝職從政存以甘棠去而益詠樂殊貴賤禮別尊卑上和下睦夫唱婦隨外受傅訓入奉母儀諸姑伯叔猶子比兒孔懷兄弟同氣連枝交友投分切磨箴規仁慈隱惻造次弗離節義廉退顛沛匪虧性靜情逸心動神疲守真志滿逐物意移堅持雅操好爵自縻都邑華夏東西二京背邙面洛浮渭據涇宮殿盤鬱樓觀飛驚圖寫禽獸畫彩仙靈丙舍傍啟甲帳對楹肆筵設席鼓瑟吹笙升階納陛弁轉疑星右通廣內左達承明既集墳典亦聚群英杜稿鐘隸漆書壁經府羅將相路俠槐卿戶封八縣家給千兵高冠陪輦驅轂振纓世祿侈富車駕肥輕策功茂實勒碑刻銘磻溪伊尹佐時阿衡奄宅曲阜微旦孰營桓公匡合濟弱扶傾綺迴漢惠說感武丁俊乂密勿多士寔寧晉楚更霸趙魏困橫假途滅虢踐土會盟何遵約法韓弊煩刑起翦頗牧用軍最精宣威沙漠馳譽丹青九州禹跡百郡秦并嶽宗泰岱禪主云亭鴈門紫塞雞田赤城昆池碣石鉅野洞庭曠遠綿邈巖岫杳冥治本於農務茲稼穡俶載南畝我藝黍稷稅熟貢新勸賞黜陟孟軻敦素史魚秉直庶幾中庸勞謙謹敕聆音察理鑑貌辨色貽厥嘉猷勉其祗植省躬譏誡寵增抗極殆辱近恥林皋幸即兩疏見機解組誰逼索居閒處沉默寂寥求古尋論散慮逍遙欣奏累遣慼謝歡招渠荷的歷園莽抽條枇杷晚翠梧桐蚤凋陳根委翳落葉飄搖游鵾獨運凌摩絳霄耽讀玩市寓目囊箱易輶攸畏屬耳垣牆具膳餐飯適口充腸飽饫烹宰飢厭糟糠親戚故舊老少異糧妾御績紡侍巾帷房紈扇圓絜銀燭煒煌晝眠夕寐藍筍象床弦歌酒宴接杯舉殤矯手頓足悅豫且康嫡後嗣續祭祀烝嘗稽顙再拜悚懼恐惶箋牒簡要顧答審詳骸垢想浴執熱願涼驢騾犢特駭躍超驤誅斬賊盜捕獲叛亡布射遼丸嵇琴阮嘯恬筆倫紙鈞巧任釣釋紛利俗並皆佳妙毛施淑姿工顰妍笑年矢每催曦暉朗曜璇璣懸斡晦魄環照指薪修祜永綏吉劭矩步引領俯仰廊廟束帶矜莊徘徊瞻眺孤陋寡聞愚蒙等誚謂語助者焉哉乎也";
+
+    let drawPool = [];       
+    let presentFoods = [];   
+    let isDrawing = false;   
+
+    // 洗牌演算法
+    function shuffle(array) {
+        let newArr = [...array];
+        for (let i = newArr.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
+        }
+        return newArr;
+    }
+
+    // ★ 核心邏輯：取得字元「完全不重複」的指定數量美食
+    function getUniqueCharFoods(foodList, targetCount) {
+        let bestSelection = [];
+        let maxTries = 1000; // 嘗試找尋完美組合的次數
+
+        for(let attempt = 0; attempt < maxTries; attempt++) {
+            let shuffled = shuffle([...foodList]);
+            let selected = [];
+            let usedChars = new Set();
+
+            for(let food of shuffled) {
+                let chars = food.split('');
+                let uniqueFoodChars = new Set(chars);
+                // 排除名稱本身就有重複字的食物 (例如: 大腸包小腸)
+                if(uniqueFoodChars.size !== chars.length) continue; 
+
+                // 檢查是否與已選擇的美食有字元衝突
+                let hasOverlap = chars.some(c => usedChars.has(c));
+                
+                if(!hasOverlap) {
+                    selected.push(food);
+                    chars.forEach(c => usedChars.add(c));
+                }
+
+                if(selected.length === targetCount) {
+                    return selected; // 成功找到完美數量
+                }
+            }
+            if (selected.length > bestSelection.length) {
+                bestSelection = selected; // 記住找過最多的一組
+            }
+        }
+        
+        return bestSelection;
+    }
+
+    // 產生遊戲 (單子與籤筒)
+    async function generateGame() {
+        const sheetCount = parseInt(document.getElementById('sheetCount').value) || 1;
+        if (sheetCount < 1 || sheetCount > 30) {
+            alert("請輸入 1 到 30 之間的份數！");
+            return;
+        }
+
+        document.getElementById('loadingOverlay').style.display = 'flex';
+        document.getElementById('loadingText').innerText = "正在精算不重複字元組合與排版，請稍候...";
+        
+        // 給 UI 一點時間渲染 loading 畫面
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        try {
+            // 1. 取得完全不重複字元的美食組合 (目標：14個，大約10個在紙上，4個不在，符合70%機率)
+            let selectedFoods = getUniqueCharFoods(nightMarketFoods, 14); 
+            let presentCount = Math.round(selectedFoods.length * 0.7); // 70% 機率在紙上
+
+            // 2. 分配「紙上必定有」與「不在紙上」
+            presentFoods = selectedFoods.slice(0, presentCount);
+            let absentFoods = selectedFoods.slice(presentCount);
+
+            // 3. 準備籤筒
+            drawPool = shuffle([...presentFoods, ...absentFoods]);
+            
+            // 4. 收集所有會被抽到的字，用來「過濾」背景混淆字，保證不在紙上的題目絕對找不到
+            let allDrawnChars = new Set(drawPool.map(f => f.split('')).flat());
+            
+            // 5. 製作純淨的填充字庫 (排除所有籤筒字)
+            let safeFillerChars = thousandChars.split('').filter(c => !allDrawnChars.has(c));
+
+            // 重設 UI
+            document.getElementById('lottery-result').innerText = `準備就緒 (共${drawPool.length}籤)`;
+            document.getElementById('history-container').innerHTML = "";
+            document.getElementById('drawBtn').disabled = false;
+            document.getElementById('drawBtn').innerText = "🎲 抽出下一道美食";
+
+            // 6. 渲染指定份數的 A4 紙
+            const output = document.getElementById('output');
+            output.innerHTML = ''; // 清空舊的
+
+            // 必出現的字元陣列
+            let baseMatrixChars = [];
+            presentFoods.forEach(food => {
+                baseMatrixChars.push(...food.split(''));
+            });
+
+            for (let i = 0; i < sheetCount; i++) {
+                // 每份紙都獨立混淆與洗牌
+                let currentMatrix = [...baseMatrixChars];
+                
+                // 隨機補滿到 64 格
+                let shuffledSafeFillers = shuffle(safeFillerChars);
+                let fillerIndex = 0;
+                while (currentMatrix.length < 64) {
+                    currentMatrix.push(shuffledSafeFillers[fillerIndex]);
+                    fillerIndex++;
+                }
+
+                // 將 64 個字徹底打亂
+                currentMatrix = shuffle(currentMatrix);
+                
+                // 渲染並加入 DOM
+                output.appendChild(createSheetElement(currentMatrix, i + 1));
+            }
+
+            updateScale(); // 調整預覽大小
+        } catch(e) {
+            console.error(e);
+            alert("產生過程發生錯誤，請重試。");
+        } finally {
+            document.getElementById('loadingOverlay').style.display = 'none';
+        }
+    }
+
+    // 建立單張 A4 學習單的 DOM 元素
+    function createSheetElement(chars, sheetIndex) {
+        const scaler = document.createElement('div');
+        scaler.className = 'sheet-scaler';
+        
+        const cellsHTML = chars.map(char => `<div class="matrix-cell">${char}</div>`).join('');
+
+        scaler.innerHTML = `
+            <div class="sheet">
+                <div class="sheet-header">
+                    <div class="sheet-title">🎯 台灣夜市美食尋字大挑戰</div>
+                    <div class="sheet-info-bar">
+                        <span>日期：<span class="input-line"></span></span>
+                        <span>姓名：<span class="input-line"></span></span>
+                        <span>得分：<span class="input-line"></span></span>
+                    </div>
+                </div>
+                
+                <div class="sheet-instructions">
+                    💡 <b>任務說明：</b>仔細聽主持人抽出的「夜市美食」，並在下方格子中尋找對應的字圈起來！<br>
+                    ⚠️ <b>注意：</b>有些美食可能<b>不在紙上</b>喔！如果找了一圈發現沒有，請放心是正常的！
+                </div>
+
+                <div class="matrix-grid">
+                    ${cellsHTML}
+                </div>
+                <div style="text-align: right; font-size: 10px; color: #94a3b8; margin-top: 10px;">
+                    夜市版 - 第 ${sheetIndex} 份 (防作弊排版)
+                </div>
+            </div>
+        `;
+        return scaler;
+    }
+
+    // 抽籤按鈕邏輯與動畫
+    function drawFood() {
+        if (isDrawing) return;
+        if (drawPool.length === 0) {
+            document.getElementById('lottery-result').innerText = "🎉 全抽完囉！";
+            document.getElementById('drawBtn').disabled = true;
+            return;
+        }
+
+        isDrawing = true;
+        const btn = document.getElementById('drawBtn');
+        const display = document.getElementById('lottery-result');
+        btn.disabled = true;
+
+        const targetFood = drawPool.pop();
+        
+        let cycles = 25; 
+        let speed = 50;  
+        
+        const rollInterval = setInterval(() => {
+            display.innerText = nightMarketFoods[Math.floor(Math.random() * nightMarketFoods.length)];
+            cycles--;
+            speed += 5; 
+
+            if (cycles <= 0) {
+                clearInterval(rollInterval);
+                display.innerText = targetFood;
+                addHistory(targetFood);
+                
+                isDrawing = false;
+                if(drawPool.length > 0) btn.disabled = false;
+            }
+        }, speed);
+    }
+
+    // 加入歷史紀錄 (並標示是否為陷阱題)
+    function addHistory(food) {
+        const historyContainer = document.getElementById('history-container');
+        if(historyContainer.innerText.includes("尚未開始")) {
+            historyContainer.innerHTML = "";
+        }
+
+        const isOnPaper = presentFoods.includes(food);
+        const tag = document.createElement('div');
+        tag.className = `history-tag ${isOnPaper ? 'tag-on-paper' : 'tag-absent'}`;
+        const hint = isOnPaper ? "(紙上有 ✅)" : "(不在紙上 ❌)";
+        tag.innerText = `${food} ${hint}`;
+
+        historyContainer.appendChild(tag);
+    }
+
+    // 處理網頁縮放預覽
+    function updateScale() {
+        const previewArea = document.querySelector('.preview-area');
+        const scalers = document.querySelectorAll('.sheet-scaler');
+        if (!previewArea || scalers.length === 0) return;
+        
+        const containerWidth = previewArea.clientWidth - 40;
+        const sheetWidth = 210 * 3.7795; 
+        let scale = containerWidth / sheetWidth;
+        if (scale > 1) scale = 1; 
+        
+        scalers.forEach(scaler => {
+            scaler.style.transform = `scale(${scale})`;
+            scaler.style.height = (297 * 3.7795 * scale) + "px"; 
+        });
+    }
+
+    async function downloadPDF() {
+        const { jsPDF } = window.jspdf;
+        const btn = document.getElementById('pdfBtn');
+        const sheets = document.querySelectorAll('.sheet');
+        const hidden = document.getElementById('hidden-capture');
+        
+        if (sheets.length === 0) {
+            alert("請先點擊「產生專屬題目單」再下載 PDF");
+            return;
+        }
+        
+        if (sheets.length > 15) {
+            alert("提醒：您產生的份數較多，轉換 PDF 可能需要幾十秒的時間，請耐心等候。");
+        }
+
+        btn.disabled = true;
+        btn.innerText = "⏳ 準備轉換 PDF...";
+        document.getElementById('loadingOverlay').style.display = 'flex';
+        document.getElementById('loadingText').innerText = "正在為您繪製高畫質 PDF，請稍候...";
+
+        try {
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            for (let i = 0; i < sheets.length; i++) {
+                const clone = sheets[i].cloneNode(true);
+                clone.style.transform = "none";
+                hidden.appendChild(clone);
+                
+                const canvas = await html2canvas(clone, { scale: 2, useCORS: true }); 
+                hidden.removeChild(clone);
+                
+                const imgData = canvas.toDataURL('image/jpeg', 0.85);
+                if (i > 0) pdf.addPage();
+                pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297);
+            }
+            pdf.save(`大腦體操_夜市尋字大挑戰_${sheets.length}份.pdf`);
+        } catch (e) {
+            console.error(e);
+            alert("轉換 PDF 時發生錯誤。建議使用瀏覽器的「直接列印 -> 另存 PDF」。");
+        } finally {
+            btn.disabled = false;
+            btn.innerText = "📱 下載 PDF";
+            document.getElementById('loadingOverlay').style.display = 'none';
+        }
+    }
+
+    window.addEventListener('resize', updateScale);
+</script>
+
+</body>
+</html>
